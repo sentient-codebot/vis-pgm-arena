@@ -25,6 +25,13 @@ def visualize_power_grid(json_file_path, layout='spring', output_file=None):
     nodes = data['data']['node']
     lines = data['data']['line']
     transformers = data['data']['transformer']
+    sources = data['data']['source']
+    
+    # Identify the source node
+    source_node_id = None
+    for source in sources:
+        source_node_id = source['node']
+        break  # Just take the first source if there are multiple
     
     # Create a graph
     G = nx.Graph()
@@ -64,29 +71,13 @@ def visualize_power_grid(json_file_path, layout='spring', output_file=None):
     # Set figure size based on the number of nodes
     plt.figure(figsize=(20, 16))
     
-    # Get voltage levels for colormap
-    voltage_levels = np.array([G.nodes[n]['u_rated'] for n in G.nodes()])
-    norm = plt.Normalize(voltage_levels.min(), voltage_levels.max())
-    cmap = cm.viridis
+    # Use consistent colors instead of voltage-based colors
+    regular_node_color = '#663399'  # Consistent purple color for all regular nodes
+    transformer_node_color = '#FF8C00'  # Consistent orange color for transformer nodes
+    source_node_color = '#FF0000'  # Bright red for source node
     
-    # Draw nodes with color based on voltage level - significantly larger
-    node_colors = cmap(norm(voltage_levels))
-    nx.draw_networkx_nodes(G, pos, node_size=600, node_color=node_colors, 
-                           alpha=0.9, edgecolors='dimgray', linewidths=1.5)
-    
-    # Draw node labels (node indices) - increased font size to match larger nodes
-    node_labels = {node: str(node) for node in G.nodes()}
-    nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=11, font_weight='bold', font_color='black', bbox=dict(facecolor='white', edgecolor='none', alpha=0.7, pad=1))
-    
-    # Draw regular edges (lines)
-    line_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'line']
-    nx.draw_networkx_edges(G, pos, edgelist=line_edges, edge_color='slategray', 
-                           width=1.0, alpha=0.7)
-    
-    # Draw transformer edges with a different color and style
+    # Identify transformer edges and nodes first
     transformer_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'transformer']
-    nx.draw_networkx_edges(G, pos, edgelist=transformer_edges, edge_color='firebrick', 
-                           width=2.5, style='dashed', alpha=1.0)
     
     # Highlight the transformer nodes
     transformer_nodes = set()
@@ -94,17 +85,57 @@ def visualize_power_grid(json_file_path, layout='spring', output_file=None):
         transformer_nodes.add(edge[0])
         transformer_nodes.add(edge[1])
     
+    # Draw nodes with consistent color
+    nx.draw_networkx_nodes(G, pos, node_size=600, node_color=regular_node_color, 
+                           alpha=1.0, edgecolors='dimgray', linewidths=1.5)
+    
+    # Draw node labels with matching background colors
+    node_labels = {node: str(node) for node in G.nodes()}
+    
+    # Create separate label groups for regular, transformer and source nodes
+    regular_nodes = [n for n in G.nodes() if (n not in transformer_nodes and n != source_node_id)]
+    
+    # Draw regular node labels with matching background color
+    nx.draw_networkx_labels(G, pos, labels={n: node_labels[n] for n in regular_nodes}, 
+                          font_size=11, font_weight='bold', font_color='white',
+                          bbox=dict(facecolor=regular_node_color, edgecolor='none', alpha=1.0, pad=1))
+    
+    # Draw transformer node labels with matching background color
+    nx.draw_networkx_labels(G, pos, labels={n: node_labels[n] for n in transformer_nodes if n != source_node_id}, 
+                          font_size=11, font_weight='bold', font_color='white',
+                          bbox=dict(facecolor=transformer_node_color, edgecolor='none', alpha=1.0, pad=1))
+                          
+    # Draw source node label with matching background color and larger font
+    if source_node_id in G.nodes():
+        nx.draw_networkx_labels(G, pos, labels={source_node_id: node_labels[source_node_id]}, 
+                              font_size=14, font_weight='bold', font_color='white',
+                              bbox=dict(facecolor=source_node_color, edgecolor='black', alpha=1.0, pad=2))
+    
+    # Draw regular edges (lines)
+    line_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'line']
+    nx.draw_networkx_edges(G, pos, edgelist=line_edges, edge_color='slategray', 
+                           width=1.0, alpha=0.7)
+    
+    # Draw transformer edges with a different color and style
+    nx.draw_networkx_edges(G, pos, edgelist=transformer_edges, edge_color='firebrick', 
+                           width=2.5, style='dashed', alpha=1.0)
+    
+    # Draw transformer nodes with consistent color
     nx.draw_networkx_nodes(G, pos, nodelist=list(transformer_nodes), 
-                           node_size=800, node_color='orange', 
+                           node_size=800, node_color=transformer_node_color, 
                            edgecolors='firebrick', linewidths=2.5)
     
     # Colorbar removed as requested
     
-    # Add legend with more space for node indices to be visible
+    # Add legend with sample nodes matching actual colors
     plt.plot([], [], color='slategray', linewidth=1.0, label='Power Line')
     plt.plot([], [], color='firebrick', linewidth=2.5, linestyle='dashed', label='Transformer')
-    plt.plot([], [], marker='o', markersize=10, markerfacecolor='orange', 
+    plt.plot([], [], marker='o', markersize=10, markerfacecolor=regular_node_color, 
+             markeredgecolor='dimgray', linestyle='', label='Regular Node')
+    plt.plot([], [], marker='o', markersize=10, markerfacecolor=transformer_node_color, 
              markeredgecolor='firebrick', linestyle='', label='Transformer Node')
+    plt.plot([], [], marker='o', markersize=12, markerfacecolor=source_node_color, 
+             markeredgecolor='black', linestyle='', label='Source Node')
     
     legend = plt.legend(title='Network Elements', loc='lower right', fontsize=12)
     plt.setp(legend.get_title(), fontsize=14)
