@@ -69,13 +69,14 @@ def visualize_power_grid(json_file_path, layout='spring', output_file=None):
     norm = plt.Normalize(voltage_levels.min(), voltage_levels.max())
     cmap = cm.viridis
     
-    # Draw nodes with color based on voltage level
+    # Draw nodes with color based on voltage level - significantly larger
     node_colors = cmap(norm(voltage_levels))
-    nx.draw_networkx_nodes(G, pos, node_size=250, node_color=node_colors, 
-                           alpha=0.9, edgecolors='dimgray', linewidths=1)
+    nx.draw_networkx_nodes(G, pos, node_size=600, node_color=node_colors, 
+                           alpha=0.9, edgecolors='dimgray', linewidths=1.5)
     
-    # Draw node labels
-    nx.draw_networkx_labels(G, pos, font_size=9, font_weight='bold')
+    # Draw node labels (node indices) - increased font size to match larger nodes
+    node_labels = {node: str(node) for node in G.nodes()}
+    nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=11, font_weight='bold', font_color='black', bbox=dict(facecolor='white', edgecolor='none', alpha=0.7, pad=1))
     
     # Draw regular edges (lines)
     line_edges = [(u, v) for u, v, d in G.edges(data=True) if d['type'] == 'line']
@@ -94,22 +95,18 @@ def visualize_power_grid(json_file_path, layout='spring', output_file=None):
         transformer_nodes.add(edge[1])
     
     nx.draw_networkx_nodes(G, pos, nodelist=list(transformer_nodes), 
-                           node_size=400, node_color='orange', 
-                           edgecolors='firebrick', linewidths=2)
+                           node_size=800, node_color='orange', 
+                           edgecolors='firebrick', linewidths=2.5)
     
-    # Add a colorbar for voltage levels
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=plt.gca(), pad=0.01)
-    cbar.set_label('Voltage Rating (V)', fontsize=14)
+    # Colorbar removed as requested
     
-    # Add legend
+    # Add legend with more space for node indices to be visible
     plt.plot([], [], color='slategray', linewidth=1.0, label='Power Line')
     plt.plot([], [], color='firebrick', linewidth=2.5, linestyle='dashed', label='Transformer')
     plt.plot([], [], marker='o', markersize=10, markerfacecolor='orange', 
              markeredgecolor='firebrick', linestyle='', label='Transformer Node')
     
-    legend = plt.legend(title='Network Elements', loc='upper right', fontsize=12)
+    legend = plt.legend(title='Network Elements', loc='lower right', fontsize=12)
     plt.setp(legend.get_title(), fontsize=14)
     
     # Add title and styling
